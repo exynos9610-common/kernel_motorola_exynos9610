@@ -1670,6 +1670,9 @@ static int pl330_update(struct pl330_dmac *pl330)
 
 			id = pl330->events[ev];
 
+			if (id == -1)
+				continue;
+
 			thrd = &pl330->channels[id];
 
 			active = thrd->req_running;
