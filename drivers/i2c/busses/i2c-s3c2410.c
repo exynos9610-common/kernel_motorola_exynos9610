@@ -1308,12 +1308,28 @@ static int s3c24xx_i2c_resume_noirq(struct device *dev)
 	struct s3c24xx_i2c *i2c = dev_get_drvdata(dev);
 	int ret;
 
-	ret = clk_enable(i2c->clk);
-	if (ret)
-		return ret;
-	s3c24xx_i2c_init(i2c);
-	clk_disable(i2c->clk);
 	i2c->suspended = 0;
+	if (!(i2c->quirks & QUIRK_FIMC_I2C)) {
+		clk_prepare_enable(i2c->clk);
+		s3c24xx_i2c_init(i2c);
+		clk_disable_unprepare(i2c->clk);
+	}
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_PM_RUNTIME
+static int s3c24xx_i2c_runtime_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct s3c24xx_i2c *i2c = platform_get_drvdata(pdev);
+
+	if (i2c->quirks & QUIRK_FIMC_I2C) {
+		clk_prepare_enable(i2c->clk);
+		s3c24xx_i2c_init(i2c);
+		clk_disable_unprepare(i2c->clk);
+	}
 
 	return 0;
 }
@@ -1323,6 +1339,9 @@ static int s3c24xx_i2c_resume_noirq(struct device *dev)
 static const struct dev_pm_ops s3c24xx_i2c_dev_pm_ops = {
 	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(s3c24xx_i2c_suspend_noirq,
 				      s3c24xx_i2c_resume_noirq)
+#ifdef CONFIG_PM_RUNTIME
+	.runtime_resume = s3c24xx_i2c_runtime_resume,
+#endif
 };
 
 #define S3C24XX_DEV_PM_OPS (&s3c24xx_i2c_dev_pm_ops)
