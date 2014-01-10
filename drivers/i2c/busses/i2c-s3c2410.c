@@ -1214,19 +1214,21 @@ static int s3c24xx_i2c_probe(struct platform_device *pdev)
 	else if (IS_ERR(i2c->pctrl) && s3c24xx_i2c_parse_dt_gpio(i2c))
 		return -EINVAL;
 
-	/* initialise the i2c controller */
-	ret = clk_prepare_enable(i2c->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "I2C clock enable failed\n");
-		return ret;
-	}
+	if (!(i2c->quirks & QUIRK_FIMC_I2C)) {
+		/* initialise the i2c controller */
+		ret = clk_prepare_enable(i2c->clk);
+		if (ret) {
+			dev_err(&pdev->dev, "I2C clock enable failed\n");
+			return ret;
+		}
 
-	ret = s3c24xx_i2c_init(i2c);
-	clk_disable(i2c->clk);
-	if (ret != 0) {
-		dev_err(&pdev->dev, "I2C controller init failed\n");
-		clk_unprepare(i2c->clk);
-		return ret;
+		ret = s3c24xx_i2c_init(i2c);
+		clk_disable(i2c->clk);
+		if (ret != 0) {
+			dev_err(&pdev->dev, "I2C controller init failed\n");
+			clk_unprepare(i2c->clk);
+			return ret;
+		}
 	}
 
 	/*
