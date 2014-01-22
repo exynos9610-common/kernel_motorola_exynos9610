@@ -39,6 +39,10 @@
 
 #include <linux/platform_data/i2c-s3c2410.h>
 
+#include <mach/exynos-pm.h>
+
+static LIST_HEAD(drvdata_list);
+
 /* see s3c2410x user guide, v1.1, section 9 (p447) for more info */
 
 #define S3C2410_IICCON			0x00
@@ -102,8 +106,10 @@ enum s3c24xx_i2c_state {
 };
 
 struct s3c24xx_i2c {
+	struct list_head	node;
 	wait_queue_head_t	wait;
 	kernel_ulong_t		quirks;
+	unsigned int		need_hw_init;
 	unsigned int		suspended:1;
 
 	struct i2c_msg		*msg;
@@ -806,6 +812,8 @@ static int s3c24xx_i2c_doxfer(struct s3c24xx_i2c *i2c,
 	return ret;
 }
 
+static int s3c24xx_i2c_init(struct s3c24xx_i2c *i2c);
+
 /*
  * first port of call from the i2c bus code when an message needs
  * transferring across the i2c bus.
@@ -816,20 +824,14 @@ static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 	struct s3c24xx_i2c *i2c = (struct s3c24xx_i2c *)adap->algo_data;
 	int retry;
 	int ret;
-	unsigned int freq;
 
 	pm_runtime_get_sync(&adap->dev);
 	ret = clk_enable(i2c->clk);
 	if (ret)
 		return ret;
 
-	if (i2c->quirks & QUIRK_FIMC_I2C) {
-		ret = s3c24xx_i2c_clockrate(i2c, &freq);
-		if (ret < 0) {
-			dev_err(i2c->dev, "cannot find frequency\n");
-			return ret;
-		}
-	}
+	if (i2c->need_hw_init)
+		s3c24xx_i2c_init(i2c);
 
 	for (retry = 0; retry < adap->retries; retry++) {
 
@@ -1113,6 +1115,7 @@ static int s3c24xx_i2c_init(struct s3c24xx_i2c *i2c)
 	dev_dbg(i2c->dev, "S3C2410_IICCON=0x%02x\n",
 		readl(i2c->regs + S3C2410_IICCON));
 
+	i2c->need_hw_init = 0;
 	return 0;
 }
 
@@ -1138,6 +1141,27 @@ s3c24xx_i2c_parse_dt(struct device_node *np, struct s3c24xx_i2c *i2c)
 static void
 s3c24xx_i2c_parse_dt(struct device_node *np, struct s3c24xx_i2c *i2c) { }
 #endif
+
+#ifdef CONFIG_CPU_IDLE
+static int s3c24xx_i2c_notifier(struct notifier_block *self,
+				unsigned long cmd, void *v)
+{
+	struct s3c24xx_i2c *i2c;
+
+	switch (cmd) {
+	case LPA_EXIT:
+		list_for_each_entry(i2c, &drvdata_list, node)
+			i2c->need_hw_init = 1;
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block s3c24xx_i2c_notifier_block = {
+	.notifier_call = s3c24xx_i2c_notifier,
+};
+#endif /*CONFIG_CPU_IDLE */
 
 static int s3c24xx_i2c_probe(struct platform_device *pdev)
 {
@@ -1214,22 +1238,7 @@ static int s3c24xx_i2c_probe(struct platform_device *pdev)
 	else if (IS_ERR(i2c->pctrl) && s3c24xx_i2c_parse_dt_gpio(i2c))
 		return -EINVAL;
 
-	if (!(i2c->quirks & QUIRK_FIMC_I2C)) {
-		/* initialise the i2c controller */
-		ret = clk_prepare_enable(i2c->clk);
-		if (ret) {
-			dev_err(&pdev->dev, "I2C clock enable failed\n");
-			return ret;
-		}
-
-		ret = s3c24xx_i2c_init(i2c);
-		clk_disable(i2c->clk);
-		if (ret != 0) {
-			dev_err(&pdev->dev, "I2C controller init failed\n");
-			clk_unprepare(i2c->clk);
-			return ret;
-		}
-	}
+	i2c->need_hw_init = 1;
 
 	/*
 	 * find the IRQ for this unit (note, this relies on the init call to
@@ -1274,6 +1283,8 @@ static int s3c24xx_i2c_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&i2c->adap.dev);
 
+	list_add_tail(&i2c->node, &drvdata_list);
+
 	dev_info(&pdev->dev, "%s: S3C I2C adapter\n", dev_name(&i2c->adap.dev));
 	return 0;
 }
@@ -1311,11 +1322,7 @@ static int s3c24xx_i2c_resume_noirq(struct device *dev)
 	int ret;
 
 	i2c->suspended = 0;
-	if (!(i2c->quirks & QUIRK_FIMC_I2C)) {
-		clk_prepare_enable(i2c->clk);
-		s3c24xx_i2c_init(i2c);
-		clk_disable_unprepare(i2c->clk);
-	}
+	i2c->need_hw_init = 1;
 
 	return 0;
 }
@@ -1327,11 +1334,8 @@ static int s3c24xx_i2c_runtime_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct s3c24xx_i2c *i2c = platform_get_drvdata(pdev);
 
-	if (i2c->quirks & QUIRK_FIMC_I2C) {
-		clk_prepare_enable(i2c->clk);
-		s3c24xx_i2c_init(i2c);
-		clk_disable_unprepare(i2c->clk);
-	}
+	if (i2c->quirks & QUIRK_FIMC_I2C)
+		i2c->need_hw_init = 1;
 
 	return 0;
 }
@@ -1364,6 +1368,9 @@ static struct platform_driver s3c24xx_i2c_driver = {
 
 static int __init i2c_adap_s3c_init(void)
 {
+#ifdef CONFIG_CPU_IDLE
+	exynos_pm_register_notifier(&s3c24xx_i2c_notifier_block);
+#endif
 	return platform_driver_register(&s3c24xx_i2c_driver);
 }
 subsys_initcall(i2c_adap_s3c_init);
