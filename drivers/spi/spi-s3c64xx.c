@@ -28,6 +28,7 @@
 #include <linux/gpio.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <mach/exynos-powermode.h>
 
 #include <linux/platform_data/spi-s3c64xx.h>
 #include <mach/exynos-fimc-is.h>
@@ -1606,6 +1607,9 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	sdd->sfr_start = mem_res->start;
 	sdd->is_probed = 0;
 	sdd->ops = NULL;
+
+	sdd->idle_ip_index = exynos_get_idle_ip_index(dev_name(&pdev->dev));
+
 	if (pdev->dev.of_node) {
 		ret = of_alias_get_id(pdev->dev.of_node, "spi");
 		if (ret < 0) {
@@ -1710,6 +1714,8 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 		}
 	}
 #else
+	exynos_update_ip_idle_status(sdd->idle_ip_index, 0);
+
 	if (clk_prepare_enable(sdd->clk)) {
 		dev_err(&pdev->dev, "Couldn't enable clock 'spi'\n");
 		ret = -EBUSY;
@@ -1817,6 +1823,8 @@ static int s3c64xx_spi_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(sdd->clk);
 
+	exynos_update_ip_idle_status(sdd->idle_ip_index, 1);
+
 	platform_set_drvdata(pdev, NULL);
 	spi_master_put(master);
 
@@ -1843,6 +1851,7 @@ static int s3c64xx_spi_suspend_operation(struct device *dev)
 		/* Disable the clock */
 		clk_disable_unprepare(sdd->src_clk);
 		clk_disable_unprepare(sdd->clk);
+		exynos_update_ip_idle_status(sdd->idle_ip_index, 1);
 	}
 #endif
 	sdd->cur_speed = 0; /* Output Clock is stopped */
@@ -1859,6 +1868,7 @@ static int s3c64xx_spi_resume_operation(struct device *dev)
 
 	if (sci->domain == DOMAIN_TOP) {
 		/* Enable the clock */
+		exynos_update_ip_idle_status(sdd->idle_ip_index, 0);
 		clk_prepare_enable(sdd->src_clk);
 		clk_prepare_enable(sdd->clk);
 
@@ -1874,6 +1884,7 @@ static int s3c64xx_spi_resume_operation(struct device *dev)
 		/* Disable the clock */
 		clk_disable_unprepare(sdd->src_clk);
 		clk_disable_unprepare(sdd->clk);
+		exynos_update_ip_idle_status(sdd->idle_ip_index, 1);
 #endif
 	}
 
@@ -1985,6 +1996,8 @@ static int s3c64xx_spi_runtime_suspend(struct device *dev)
 	if (__clk_get_enable_count(sdd->src_clk))
 		clk_disable_unprepare(sdd->src_clk);
 
+	exynos_update_ip_idle_status(sdd->idle_ip_index, 1);
+
 	/* Free DMA channels */
 	if (sci->dma_mode == DMA_MODE && sdd->is_probed && sdd->ops != NULL) {
 	#ifdef CONFIG_ARM64
@@ -2022,12 +2035,14 @@ static int s3c64xx_spi_runtime_resume(struct device *dev)
 	}
 
 	if (sci->domain == DOMAIN_TOP) {
+		exynos_update_ip_idle_status(sdd->idle_ip_index, 0);
 		clk_prepare_enable(sdd->src_clk);
 		clk_prepare_enable(sdd->clk);
 	}
 
 #if defined(CONFIG_VIDEO_EXYNOS_FIMC_IS) || defined(CONFIG_VIDEO_EXYNOS_FIMC_IS2)
 	else if (sci->domain == DOMAIN_CAM1 || sci->domain == DOMAIN_ISP) {
+		exynos_update_ip_idle_status(sdd->idle_ip_index, 0);
 		clk_prepare_enable(sdd->src_clk);
 		clk_prepare_enable(sdd->clk);
 
