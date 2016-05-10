@@ -66,14 +66,6 @@ unsigned long __stack_chk_guard __ro_after_init;
 EXPORT_SYMBOL(__stack_chk_guard);
 #endif
 
-void soft_restart(unsigned long addr)
-{
-	setup_mm_for_reboot();
-	cpu_soft_restart(virt_to_phys(cpu_reset), addr);
-	/* Should never get here */
-	BUG();
-}
-
 /*
  * Function pointers to optional machine specific functions
  */
