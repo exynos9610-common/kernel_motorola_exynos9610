@@ -2174,7 +2174,9 @@ static void pl330_tasklet(unsigned long data)
 			}
 		} else {
 			desc->status = FREE;
+			spin_lock(&pch->dmac->pool_lock);
 			list_move_tail(&desc->node, &pch->dmac->desc_pool);
+			spin_unlock(&pch->dmac->pool_lock);
 		}
 
 		dma_descriptor_unmap(&desc->txd);
