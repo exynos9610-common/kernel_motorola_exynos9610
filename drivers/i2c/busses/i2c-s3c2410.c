@@ -767,6 +767,7 @@ static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 	int retry;
 	int ret;
 
+	pm_runtime_get_sync(&adap->dev);
 	ret = clk_enable(i2c->clk);
 	if (ret)
 		return ret;
@@ -777,6 +778,7 @@ static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 
 		if (ret != -EAGAIN) {
 			clk_disable(i2c->clk);
+			pm_runtime_put(&adap->dev);
 			return ret;
 		}
 
@@ -786,6 +788,7 @@ static int s3c24xx_i2c_xfer(struct i2c_adapter *adap,
 	}
 
 	clk_disable(i2c->clk);
+	pm_runtime_put(&adap->dev);
 	return -EREMOTEIO;
 }
 
@@ -1200,6 +1203,8 @@ static int s3c24xx_i2c_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	pm_runtime_enable(&i2c->adap.dev);
+
 	dev_info(&pdev->dev, "%s: S3C I2C adapter\n", dev_name(&i2c->adap.dev));
 	return 0;
 }
@@ -1210,6 +1215,7 @@ static int s3c24xx_i2c_remove(struct platform_device *pdev)
 
 	clk_unprepare(i2c->clk);
 
+	pm_runtime_disable(&i2c->adap.dev);
 	pm_runtime_disable(&pdev->dev);
 
 	s3c24xx_i2c_deregister_cpufreq(i2c);
