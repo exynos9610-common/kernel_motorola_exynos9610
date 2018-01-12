@@ -4028,8 +4028,10 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 		dev_err(hba->dev,
 			"%s: power mode change failed %d\n", __func__, ret);
 	} else {
+		ufshcd_hold(hba, false);
 		ret = ufshcd_vops_pwr_change_notify(hba, POST_CHANGE, NULL,
 								pwr_mode);
+		ufshcd_release(hba);
 		if (ret)
 			goto out;
 
@@ -4051,6 +4053,7 @@ int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	struct ufs_pa_layer_attr final_params = { 0 };
 	int ret;
 
+	ufshcd_hold(hba, false);
 	ret = ufshcd_vops_pwr_change_notify(hba, PRE_CHANGE,
 					desired_pwr_mode, &final_params);
 
@@ -4065,6 +4068,7 @@ int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	if (!ret)
 		ufshcd_print_pwr_info(hba);
 out:
+	ufshcd_release(hba);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(ufshcd_config_pwr_mode);
@@ -4288,6 +4292,8 @@ static inline int ufshcd_disable_device_tx_lcc(struct ufs_hba *hba)
 static int ufshcd_hba_enable(struct ufs_hba *hba)
 {
 	int ret;
+	ufshcd_hold(hba, false);
+
 	if (hba->vops && hba->vops->host_reset)
 		hba->vops->host_reset(hba);
 	if (hba->quirks & UFSHCD_QUIRK_USE_OF_HCE) {
@@ -4300,6 +4306,8 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 	} else {
 		ret = __ufshcd_hba_enable(hba);
 	}
+	ufshcd_release(hba);
+
 	if (ret)
 		dev_err(hba->dev, "Host controller enable failed\n");
 
@@ -4318,6 +4326,9 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 	int retries = DME_LINKSTARTUP_RETRIES;
 	bool link_startup_again = false;
 
+
+	ufshcd_hold(hba, false);
+	
 	/*
 	 * If UFS device isn't active then we will have to issue link startup
 	 * 2 times to make sure the device state move to active.
@@ -4374,6 +4385,8 @@ link_startup:
 
 	ret = ufshcd_make_hba_operational(hba);
 out:
+	ufshcd_release(hba);
+
 	if (ret) {
 		dev_err(hba->dev, "link startup failed %d\n", ret);
 		ufshcd_print_host_state(hba);
