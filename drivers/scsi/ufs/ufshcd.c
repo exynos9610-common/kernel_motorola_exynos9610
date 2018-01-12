@@ -3955,7 +3955,7 @@ static int __ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 
 		dev_err(hba->dev, "%s: hibern8 enter failed. ret = %d\n",
 			__func__, ret);
-
+		ssleep(2);
 		/*
 		 * If link recovery fails then return error code returned from
 		 * ufshcd_link_recovery().
@@ -5495,6 +5495,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 	if ((hba->saved_err & INT_FATAL_ERRORS) ||
 	    ((hba->saved_err & UIC_ERROR) &&
 	    (hba->saved_uic_err & (UFSHCD_UIC_DL_PA_INIT_ERROR |
+				   UFSHCD_UIC_DL_ERROR |
 				   UFSHCD_UIC_DL_NAC_RECEIVED_ERROR |
 				   UFSHCD_UIC_DL_TCx_REPLAY_ERROR))))
 		needs_reset = true;
@@ -8154,6 +8155,9 @@ disable_clks:
 set_link_active:
 	if (hba->clk_scaling.is_allowed)
 		ufshcd_resume_clkscaling(hba);
+
+	if (ufshcd_is_shutdown_pm(pm_op))
+		goto out;
 	if (ufshcd_is_link_hibern8(hba)) {
 		ufshcd_set_link_trans_active(hba);
 		if (!ufshcd_link_hibern8_ctrl(hba, false))
@@ -8163,6 +8167,9 @@ set_link_active:
 	} else if (ufshcd_is_link_off(hba))
 		ufshcd_host_reset_and_restore(hba);
 set_dev_active:
+	if (ufshcd_is_shutdown_pm(pm_op))
+		goto out;
+
 	if (!ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE))
 		ufshcd_disable_auto_bkops(hba);
 enable_gating:
