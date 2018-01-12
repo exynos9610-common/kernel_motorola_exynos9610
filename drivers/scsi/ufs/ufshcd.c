@@ -5038,7 +5038,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba, int reason,
  * ufshcd_transfer_req_compl - handle SCSI and query command completion
  * @hba: per adapter instance
  */
-static void ufshcd_transfer_req_compl(struct ufs_hba *hba)
+static void ufshcd_transfer_req_compl(struct ufs_hba *hba, int reason)
 {
 	unsigned long completed_reqs;
 	u32 tr_doorbell;
@@ -5056,7 +5056,7 @@ static void ufshcd_transfer_req_compl(struct ufs_hba *hba)
 	tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	completed_reqs = tr_doorbell ^ hba->outstanding_reqs;
 
-	__ufshcd_transfer_req_compl(hba, completed_reqs);
+	__ufshcd_transfer_req_compl(hba, reason, completed_reqs);
 }
 
 /**
@@ -5369,7 +5369,7 @@ out:
 /* Complete requests that have door-bell cleared */
 static void ufshcd_complete_requests(struct ufs_hba *hba)
 {
-	ufshcd_transfer_req_compl(hba);
+	ufshcd_transfer_req_compl(hba, 0);
 	ufshcd_tmc_handler(hba);
 }
 
@@ -5543,10 +5543,20 @@ skip_pending_xfer_clear:
 		 * slot forcefully.
 		 */
 		if (hba->outstanding_reqs == max_doorbells)
-			__ufshcd_transfer_req_compl(hba,
+			__ufshcd_transfer_req_compl(hba, 0,
 						    (1UL << (hba->nutrs - 1)));
 
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+		/* Fatal errors need reset */
+		if (err_xfer || err_tm || (hba->saved_err & INT_FATAL_ERRORS) ||
+				((hba->saved_err & UIC_ERROR) &&
+				((hba->saved_uic_err & UFSHCD_UIC_DL_PA_INIT_ERROR) ||
+				 (hba->saved_uic_err & UFSHCD_UIC_DL_ERROR))))
+					dev_err(hba->dev,
+					"%s: saved_err:0x%x, saved_uic_err:0x%x\n",
+					__func__, hba->saved_err, hba->saved_uic_err);
+
 		err = ufshcd_reset_and_restore(hba);
 		spin_lock_irqsave(hba->host->host_lock, flags);
 		if (err) {
@@ -5747,7 +5757,7 @@ static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 		ufshcd_tmc_handler(hba);
 
 	if (intr_status & UTP_TRANSFER_REQ_COMPL)
-		ufshcd_transfer_req_compl(hba);
+		ufshcd_transfer_req_compl(hba, 0);
 }
 
 /**
@@ -5948,7 +5958,7 @@ static int ufshcd_eh_device_reset_handler(struct scsi_cmnd *cmd)
 		}
 	}
 	spin_lock_irqsave(host->host_lock, flags);
-	ufshcd_transfer_req_compl(hba);
+	ufshcd_transfer_req_compl(hba, DID_RESET);
 	spin_unlock_irqrestore(host->host_lock, flags);
 
 out:
@@ -6868,7 +6878,9 @@ retry:
 	}
 
 	/* set the state as operational after switching to desired gear */
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	/*
 	 * If we are in error handling context or in power management callbacks
