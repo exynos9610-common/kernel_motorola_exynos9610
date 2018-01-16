@@ -119,6 +119,11 @@ SCHED_FEAT(EAS_PREFER_IDLE, true)
 SCHED_FEAT(FIND_BEST_TARGET, true)
 SCHED_FEAT(FBT_STRICT_ORDER, true)
 
+#ifdef CONFIG_SCHED_EHMP
+SCHED_FEAT(EXYNOS_HMP, true)
+#else
+SCHED_FEAT(EXYNOS_HMP, false)
+#endif
 /*
  * Apply schedtune boost hold to tasks of all sched classes.
  * If enabled, schedtune will hold the boost applied to a CPU
