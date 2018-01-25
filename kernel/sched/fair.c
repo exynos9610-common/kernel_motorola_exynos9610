@@ -36,6 +36,8 @@
 
 #include <trace/events/sched.h>
 
+#include <soc/samsung/exynos-emc.h>
+
 #include "sched.h"
 #include "tune.h"
 #include "walt.h"
@@ -11021,6 +11023,9 @@ void nohz_balance_enter_idle(int cpu)
 	if (on_null_domain(cpu_rq(cpu)))
 		return;
 
+#ifdef CONFIG_EXYNOS_MODE_CHANGER
+	exynos_emc_update(cpu);
+#endif
 	cpumask_set_cpu(cpu, nohz.idle_cpus_mask);
 	atomic_inc(&nohz.nr_cpus);
 	set_bit(NOHZ_TICK_STOPPED, nohz_flags(cpu));
@@ -11426,6 +11431,10 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 	update_misfit_status(curr, rq);
 
 	update_overutilized_status(rq);
+
+#ifdef CONFIG_EXYNOS_MODE_CHANGER
+	exynos_emc_update(rq->cpu);
+#endif
 }
 
 /*
