@@ -115,7 +115,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 
 	buffer->dev = dev;
 	buffer->size = len;
-	INIT_LIST_HEAD(&buffer->attachments);
 	mutex_init(&buffer->lock);
 	mutex_lock(&dev->buffer_lock);
 	ion_buffer_add(dev, buffer);
@@ -218,38 +217,17 @@ static void free_duped_table(struct sg_table *table)
 	kfree(table);
 }
 
-struct ion_dma_buf_attachment {
-	struct device *dev;
-	struct sg_table *table;
-	struct list_head list;
-};
-
 static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 			      struct dma_buf_attachment *attachment)
 {
-	struct ion_dma_buf_attachment *a;
 	struct sg_table *table;
 	struct ion_buffer *buffer = dmabuf->priv;
 
-	a = kzalloc(sizeof(*a), GFP_KERNEL);
-	if (!a)
-		return -ENOMEM;
-
 	table = dup_sg_table(buffer->sg_table);
-	if (IS_ERR(table)) {
-		kfree(a);
+	if (IS_ERR(table))
 		return -ENOMEM;
-	}
 
-	a->table = table;
-	a->dev = dev;
-	INIT_LIST_HEAD(&a->list);
-
-	attachment->priv = a;
-
-	mutex_lock(&buffer->lock);
-	list_add(&a->list, &buffer->attachments);
-	mutex_unlock(&buffer->lock);
+	attachment->priv = table;
 
 	return 0;
 }
@@ -257,24 +235,13 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
 				struct dma_buf_attachment *attachment)
 {
-	struct ion_dma_buf_attachment *a = attachment->priv;
-	struct ion_buffer *buffer = dmabuf->priv;
-
-	mutex_lock(&buffer->lock);
-	list_del(&a->list);
-	mutex_unlock(&buffer->lock);
-	free_duped_table(a->table);
-
-	kfree(a);
+	free_duped_table(attachment->priv);
 }
 
 static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 					enum dma_data_direction direction)
 {
-	struct ion_dma_buf_attachment *a = attachment->priv;
-	struct sg_table *table;
-
-	table = a->table;
+	struct sg_table *table = attachment->priv;
 
 	if (!dma_map_sg(attachment->dev, table->sgl, table->nents,
 			direction))
@@ -396,14 +363,16 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 					enum dma_data_direction direction)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	struct ion_dma_buf_attachment *a;
+	struct dma_buf_attachment *att;
 
-	mutex_lock(&buffer->lock);
-	list_for_each_entry(a, &buffer->attachments, list) {
-		dma_sync_sg_for_cpu(a->dev, a->table->sgl, a->table->nents,
+	mutex_lock(&dmabuf->lock);
+	list_for_each_entry(att, &dmabuf->attachments, node) {
+		struct sg_table *table = att->priv;
+
+		dma_sync_sg_for_cpu(att->dev, table->sgl, table->nents,
 				    direction);
 	}
-	mutex_unlock(&buffer->lock);
+	mutex_unlock(&dmabuf->lock);
 
 	return 0;
 }
@@ -412,14 +381,16 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 				      enum dma_data_direction direction)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
-	struct ion_dma_buf_attachment *a;
+	struct dma_buf_attachment *att;
 
-	mutex_lock(&buffer->lock);
-	list_for_each_entry(a, &buffer->attachments, list) {
-		dma_sync_sg_for_device(a->dev, a->table->sgl, a->table->nents,
+	mutex_lock(&dmabuf->lock);
+	list_for_each_entry(att, &dmabuf->attachments, node) {
+		struct sg_table *table = att->priv;
+
+		dma_sync_sg_for_device(att->dev, table->sgl, table->nents,
 				       direction);
 	}
-	mutex_unlock(&buffer->lock);
+	mutex_unlock(&dmabuf->lock);
 
 	return 0;
 }
