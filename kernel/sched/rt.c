@@ -15,6 +15,9 @@
 int sched_rr_timeslice = RR_TIMESLICE;
 int sysctl_sched_rr_timeslice = (MSEC_PER_SEC / HZ) * RR_TIMESLICE;
 
+
+void update_rt_load_avg(u64 now, struct sched_rt_entity *rt_se);
+
 static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun);
 
 struct rt_bandwidth def_rt_bandwidth;
@@ -1352,6 +1355,12 @@ static void __enqueue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flag
 	}
 	rt_se->on_rq = 1;
 
+	update_rt_load_avg(rq_clock_task(rq_of_rt_rq(rt_rq)), rt_se);
+
+	/* TODO:
+	 * Need to attach entity load average for rt entity is task
+	 */
+
 	inc_rt_tasks(rt_se, rt_rq);
 }
 
@@ -1365,6 +1374,8 @@ static void __dequeue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flag
 		__delist_rt_entity(rt_se, array);
 	}
 	rt_se->on_rq = 0;
+
+	update_rt_load_avg(rq_clock_task(rq_of_rt_rq(rt_rq)), rt_se);
 
 	dec_rt_tasks(rt_se, rt_rq);
 }
@@ -1483,6 +1494,11 @@ static void yield_task_rt(struct rq *rq)
 }
 
 #ifdef CONFIG_SMP
+
+/* TODO:
+ * attach/detach/migrate_task_rt_rq() for load tracking
+ */
+
 static int find_lowest_rq(struct task_struct *task);
 
 static int
@@ -1621,15 +1637,18 @@ static struct task_struct *_pick_next_task_rt(struct rq *rq)
 	struct sched_rt_entity *rt_se;
 	struct task_struct *p;
 	struct rt_rq *rt_rq  = &rq->rt;
+	u64 now = rq_clock_task(rq);
 
 	do {
 		rt_se = pick_next_rt_entity(rq, rt_rq);
 		BUG_ON(!rt_se);
+		update_rt_load_avg(now, rt_se);
+		rt_rq->curr = rt_se;
 		rt_rq = group_rt_rq(rt_se);
 	} while (rt_rq);
 
 	p = rt_task_of(rt_se);
-	p->se.exec_start = rq_clock_task(rq);
+	p->se.exec_start = now;
 
 	return p;
 }
@@ -1690,6 +1709,9 @@ pick_next_task_rt(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 
 static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 {
+	struct sched_rt_entity *rt_se = &p->rt;
+	u64 now = rq_clock_task(rq);
+
 	update_curr_rt(rq);
 
 	update_rt_rq_load_avg(rq_clock_task(rq), cpu_of(rq), &rq->rt, 1);
@@ -1700,6 +1722,14 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 	 */
 	if (on_rt_rq(&p->rt) && p->nr_cpus_allowed > 1)
 		enqueue_pushable_task(rq, p);
+
+	for_each_sched_rt_entity(rt_se) {
+		struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
+		if (rt_se->on_rq)
+			update_rt_load_avg(now, rt_se);
+
+		rt_rq->curr = NULL;
+	}
 }
 
 #ifdef CONFIG_SMP
@@ -2437,9 +2467,13 @@ static inline void watchdog(struct rq *rq, struct task_struct *p) { }
 static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
 {
 	struct sched_rt_entity *rt_se = &p->rt;
+	u64 now = rq_clock_task(rq);
 
 	update_curr_rt(rq);
-	update_rt_rq_load_avg(rq_clock_task(rq), cpu_of(rq), &rq->rt, 1);
+	update_rt_rq_load_avg(now, cpu_of(rq), &rq->rt, 1);
+
+	for_each_sched_rt_entity(rt_se)
+		update_rt_load_avg(now, rt_se);
 
 	watchdog(rq, p);
 
