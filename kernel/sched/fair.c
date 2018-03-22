@@ -33,7 +33,7 @@
 #include <linux/mempolicy.h>
 #include <linux/migrate.h>
 #include <linux/task_work.h>
-#include <linux/ehmp.h>
+#include <linux/ems.h>
 
 #include <trace/events/sched.h>
 
@@ -797,7 +797,7 @@ void post_init_entity_util_avg(struct sched_entity *se)
 	long cpu_scale = arch_scale_cpu_capacity(NULL, cpu_of(rq_of(cfs_rq)));
 	long cap = (long)(cpu_scale - cfs_rq->avg.util_avg) / 2;
 
-	if (sched_feat(EXYNOS_HMP)) {
+	if (sched_feat(EXYNOS_MS)) {
 		exynos_init_entity_util_avg(se);
 		goto util_init_done;
 	}
@@ -5197,7 +5197,7 @@ static inline void update_overutilized_status(struct rq *rq)
 	rcu_read_lock();
 	sd = rcu_dereference(rq->sd);
 	if (sd && !sd_overutilized(sd)) {
-		if (sched_feat(EXYNOS_HMP))
+		if (sched_feat(EXYNOS_MS))
 			overutilized = lbt_overutilized(rq->cpu, sd->level);
 		else
 			overutilized = cpu_overutilized(rq->cpu);
@@ -6130,7 +6130,7 @@ static int group_idle_state(struct energy_env *eenv, int cpu_idx)
 	 * after moving, previous cpu/cluster can be powered down,
 	 * so it should be consider it when idle power was calculated.
 	 */
-	if (sched_feat(EXYNOS_HMP)) {
+	if (sched_feat(EXYNOS_MS)) {
 		new_state = exynos_estimate_idle_state(cpu_idx, sched_group_span(sg),
 						max_idle_state_idx, sg->group_weight);
 		if (new_state)
@@ -6743,7 +6743,7 @@ find_idlest_group(struct sched_domain *sd, struct task_struct *p,
 	unsigned long imbalance = scale_load_down(NICE_0_LOAD) *
 				(sd->imbalance_pct-100) / 100;
 
-	if (sched_feat(EXYNOS_HMP)) {
+	if (sched_feat(EXYNOS_MS)) {
 		idlest = exynos_fit_idlest_group(sd, p);
 		if (idlest)
 			return idlest;
@@ -9525,7 +9525,6 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 			*overload = 1;
 		}
 
-
 		if (sched_feat(EXYNOS_MS)) {
 			if (lbt_overutilized(i, env->sd->level)) {
 				*overutilized = true;
@@ -10292,7 +10291,7 @@ static int need_active_balance(struct lb_env *env)
 			return 1;
 	}
 
-	if (sched_feat(EXYNOS_HMP))
+	if (sched_feat(EXYNOS_MS))
 		return exynos_need_active_balance(env->idle, sd, env->src_cpu, env->dst_cpu);
 
 	/*
