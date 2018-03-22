@@ -722,6 +722,8 @@ static int ion_device_create(void)
 		goto debugfs_done;
 	}
 
+	ion_debug_initialize(idev);
+
 debugfs_done:
 	exynos_ion_fixup(idev);
 	idev->buffers = RB_ROOT;
