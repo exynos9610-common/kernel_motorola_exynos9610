@@ -15,6 +15,7 @@
 #define __FS_HAS_ENCRYPTION 1
 #include <linux/fscrypt.h>
 #include <crypto/hash.h>
+#include <crypto/diskcipher.h>
 
 /* Encryption parameters */
 #define FS_IV_SIZE			16
@@ -59,6 +60,9 @@ struct fscrypt_info {
 	u8 ci_data_mode;
 	u8 ci_filename_mode;
 	u8 ci_flags;
+#ifdef CONFIG_CRYPTO_DISKCIPHER
+	struct crypto_diskcipher *ci_dtfm;
+#endif
 	struct crypto_skcipher *ci_ctfm;
 	struct crypto_cipher *ci_essiv_tfm;
 	u8 ci_master_key[FS_KEY_DESCRIPTOR_SIZE];
@@ -107,6 +111,8 @@ fscrypt_msg(struct super_block *sb, const char *level, const char *fmt, ...);
 #define fscrypt_err(sb, fmt, ...)		\
 	fscrypt_msg(sb, KERN_ERR, fmt, ##__VA_ARGS__)
 
+extern void fscrypt_free_bounce_page(void *pool);
+
 /* fname.c */
 extern int fname_encrypt(struct inode *inode, const struct qstr *iname,
 			 u8 *out, unsigned int olen);
@@ -117,4 +123,14 @@ extern bool fscrypt_fname_encrypted_size(const struct inode *inode,
 /* keyinfo.c */
 extern void __exit fscrypt_essiv_cleanup(void);
 
+static inline int fscrypt_disk_encrypted(const struct inode *inode)
+{
+#if IS_ENABLED(CONFIG_FS_ENCRYPTION)
+#if IS_ENABLED(CONFIG_CRYPTO_DISKCIPHER)
+	if (inode && inode->i_crypt_info)
+		return (inode->i_crypt_info->ci_dtfm != NULL);
+#endif
+#endif
+	return 0;
+}
 #endif /* _FSCRYPT_PRIVATE_H */
