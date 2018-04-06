@@ -2296,6 +2296,11 @@ static int find_victim_rt_rq(struct task_struct *task, struct sched_group *sg, i
 		set_victim_flag(cpu_rq(*best_cpu)->curr);
 	}
 
+	if (victim_rt)
+		trace_sched_fluid_stat(task, &task->se.avg, *best_cpu, "VICTIM-FAIR");
+	else
+		trace_sched_fluid_stat(task, &task->se.avg, *best_cpu, "VICTIM-RT");
+
 	return *best_cpu;
 
 }
@@ -2337,6 +2342,7 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 	 */
 	if (wake_flags || affordable_cpu(prefer_cpu, task_util(task))) {
 		best_cpu = prefer_cpu;
+		trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "CACHE-HOT");
 		goto out;
 	}
 
@@ -2354,6 +2360,7 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 
 		if (idle_cpu(cpu)) {
 			best_cpu = cpu;
+			trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "IDLE-FIRST");
 			goto out;
 		}
 	}
@@ -2398,6 +2405,7 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 		if (min_cpu >= 0 &&
 			((capacity_of(min_cpu) >= min_load) || (min_cpu == prefer_cpu))) {
 			best_cpu = min_cpu;
+			trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "FAIR-RECESS");
 			goto unlock;
 		}
 
@@ -2405,6 +2413,7 @@ static int find_lowest_rq_fluid(struct task_struct *task, int wake_flags)
 		if (min_rt_cpu >= 0 &&
 			((capacity_of(min_rt_cpu) >= min_rt_load) || (min_rt_cpu == prefer_cpu))) {
 			best_cpu = min_rt_cpu;
+			trace_sched_fluid_stat(task, &task->se.avg, best_cpu, "RT-RECESS");
 			goto unlock;
 		}
 
