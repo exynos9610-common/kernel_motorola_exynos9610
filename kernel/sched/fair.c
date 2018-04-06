@@ -42,7 +42,6 @@
 #include "sched.h"
 #include "tune.h"
 #include "walt.h"
-#include "ems/ems.h"
 
 /*
  * Targeted preemption latency for CPU-bound tasks:
