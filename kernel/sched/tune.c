@@ -18,13 +18,6 @@ extern struct reciprocal_value schedtune_spc_rdiv;
 /* We hold schedtune boost in effect for at least this long */
 #define SCHEDTUNE_BOOST_HOLD_NS 50000000ULL
 
-static int perf_threshold = 0;
-
-int schedtune_perf_threshold(void)
-{
-	return perf_threshold + 1;
-}
-
 struct group_balancer {
 	/* sum of task utilization in group */
 	unsigned long util;
@@ -1081,8 +1074,6 @@ schedtune_init(void)
 {
 	schedtune_spc_rdiv = reciprocal_value(100);
 	schedtune_init_cgroups();
-
-	perf_threshold = find_second_max_cap();
 
 	return 0;
 }
