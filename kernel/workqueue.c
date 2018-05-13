@@ -50,6 +50,7 @@
 #include <linux/uaccess.h>
 #include <linux/nmi.h>
 #include <linux/kvm_para.h>
+#include <linux/debug-snapshot.h>
 
 #include "workqueue_internal.h"
 
@@ -2134,7 +2135,9 @@ __acquires(&pool->lock)
 	 */
 	lockdep_invariant_state(true);
 	trace_workqueue_execute_start(work);
+	dbg_snapshot_work(worker, worker->task, worker->current_func, DSS_FLAG_IN);
 	worker->current_func(work);
+	dbg_snapshot_work(worker, worker->task, worker->current_func, DSS_FLAG_OUT);
 	/*
 	 * While we must be careful to not use "work" after this, the trace
 	 * point will only record its address.
