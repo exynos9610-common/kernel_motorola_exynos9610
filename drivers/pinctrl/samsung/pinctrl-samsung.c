@@ -1264,7 +1264,7 @@ static void samsung_pinctrl_suspend_dev(
 	int ret;
 
 	if (!drvdata->suspend)
-		return -EINVAL;
+		return;
 
 	if (!IS_ERR(drvdata->pctl_dev->p)) {
 		/* This is ignore to disable mux configuration. */
@@ -1274,9 +1274,6 @@ static void samsung_pinctrl_suspend_dev(
 	ret = pinctrl_force_sleep(drvdata->pctl_dev);
 	if (ret)
 	        dev_err(drvdata->dev, "could not set sleep pinstate %d\n", ret);
-
-	if (!drvdata->suspend)
-		return;
 
 	for (i = 0; i < drvdata->nr_banks; i++) {
 		struct samsung_pin_bank *bank = &drvdata->pin_banks[i];
