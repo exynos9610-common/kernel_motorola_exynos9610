@@ -42,9 +42,6 @@ static DEFINE_SPINLOCK(pause_on_oops_lock);
 bool crash_kexec_post_notifiers;
 int panic_on_warn __read_mostly;
 static unsigned int warn_limit __read_mostly;
-#ifdef CONFIG_MUIC_S2MU004
-extern void s2mu004_muic_set_auto(void);
-#endif
 
 int panic_timeout = CONFIG_PANIC_TIMEOUT;
 EXPORT_SYMBOL_GPL(panic_timeout);
@@ -206,10 +203,6 @@ void panic(const char *fmt, ...)
 		 */
 		panic_on_warn = 0;
 	}
-
-#ifdef CONFIG_MUIC_S2MU004
-	s2mu004_muic_set_auto();
-#endif
 
 	/*
 	* dbg_snapshot_early_panic is for supporting wapper functions
