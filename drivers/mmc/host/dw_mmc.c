@@ -3354,7 +3354,7 @@ static int dw_mci_init_slot_caps(struct dw_mci_slot *slot)
 	int ctrl_id;
 
 	if (host->pdata->caps)
-		mmc->caps = host->pdata->caps;
+		mmc->caps |= host->pdata->caps;
 
 	/*
 	 * Support MMC_CAP_ERASE by default.
@@ -3363,7 +3363,7 @@ static int dw_mci_init_slot_caps(struct dw_mci_slot *slot)
 	mmc->caps |= MMC_CAP_ERASE;
 
 	if (host->pdata->pm_caps)
-		mmc->pm_caps = host->pdata->pm_caps;
+		mmc->pm_caps |= host->pdata->pm_caps;
 
 	if (host->dev->of_node) {
 		ctrl_id = of_alias_get_id(host->dev->of_node, "mshc");
@@ -3383,7 +3383,7 @@ static int dw_mci_init_slot_caps(struct dw_mci_slot *slot)
 	}
 
 	if (host->pdata->caps2)
-		mmc->caps2 = host->pdata->caps2;
+		mmc->caps2 |= host->pdata->caps2;
 
 	/* Process SDIO IRQs through the sdio_irq_work. */
 	if (mmc->caps & MMC_CAP_SDIO_IRQ)
