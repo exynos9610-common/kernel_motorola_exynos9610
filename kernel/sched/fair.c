@@ -11034,7 +11034,7 @@ void nohz_balance_enter_idle(int cpu)
 	if (on_null_domain(cpu_rq(cpu)))
 		return;
 
-#ifdef CONFIG_EXYNOS_MODE_CHANGER
+#ifdef CONFIG_EXYNOS_PSTATE_MODE_CHANGER
 	exynos_emc_update(cpu);
 #endif
 	cpumask_set_cpu(cpu, nohz.idle_cpus_mask);
@@ -11443,7 +11443,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 
 	update_overutilized_status(rq);
 
-#ifdef CONFIG_EXYNOS_MODE_CHANGER
+#ifdef CONFIG_EXYNOS_PSTATE_MODE_CHANGER
 	exynos_emc_update(rq->cpu);
 #endif
 }
