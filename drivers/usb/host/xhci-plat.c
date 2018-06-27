@@ -535,6 +535,10 @@ static int xhci_plat_remove(struct platform_device *dev)
 >>>>>>> f09582feba44 ([COMMON] usb: add USB driver for Exynos)
 
 	pm_runtime_get_sync(&dev->dev);
+	dev_info(&dev->dev, "WAKE UNLOCK\n");
+	wake_unlock(xhci->wakelock);
+	wake_lock_destroy(xhci->wakelock);
+
 	xhci->xhc_state |= XHCI_STATE_REMOVING;
 
 	usb_remove_hcd(shared_hcd);
@@ -556,10 +560,6 @@ static int xhci_plat_remove(struct platform_device *dev)
 	if (!IS_ERR(clk))
 		clk_disable_unprepare(clk);
 	usb_put_hcd(hcd);
-
-	dev_info(&dev->dev, "WAKE UNLOCK\n");
-	wake_unlock(xhci->wakelock);
-	wake_lock_destroy(xhci->wakelock);
 
 	pm_runtime_disable(&dev->dev);
 	pm_runtime_put_noidle(&dev->dev);
