@@ -695,6 +695,8 @@ void ion_device_add_heap(struct ion_heap *heap)
 		}
 	}
 
+	ion_debug_heap_init(heap);
+
 	dev->heap_cnt++;
 	up_write(&dev->lock);
 }
