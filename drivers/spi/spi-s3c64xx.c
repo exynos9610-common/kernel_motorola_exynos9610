@@ -24,6 +24,7 @@
 #include <linux/dmaengine.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/time.h>
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
 #include <linux/of.h>
@@ -47,6 +48,7 @@ static LIST_HEAD(drvdata_list);
 
 #define MAX_SPI_PORTS		22
 #define SPI_AUTOSUSPEND_TIMEOUT		(100)
+#define SPI_TIMEOUT (msecs_to_jiffies(100))
 
 /* Registers and bit-fields */
 
@@ -439,6 +441,7 @@ static int s3c64xx_spi_prepare_transfer(struct spi_master *spi)
 	struct s3c64xx_spi_driver_data *sdd = spi_master_get_devdata(spi);
 	struct s3c64xx_spi_info *sci = sdd->cntrlr_info;
 #ifdef CONFIG_PM
+	unsigned long timeout;
 	int ret;
 #endif
 
@@ -451,9 +454,24 @@ static int s3c64xx_spi_prepare_transfer(struct spi_master *spi)
 #endif
 
 #ifdef CONFIG_PM
-	ret = pm_runtime_get_sync(&sdd->pdev->dev);
-	if(ret < 0)
+	timeout = jiffies + SPI_TIMEOUT;
+	while(time_before(jiffies, timeout)) {
+		ret = pm_runtime_get_sync(&sdd->pdev->dev);
+		if(ret < 0) {
+			dev_err(&sdd->pdev->dev, "SPI runtime get sync failed, and wait for 1msec ret: %d\n", ret);
+			usleep_range(1000,1000);
+		}
+		else {
+			ret = 0;
+			break;
+		}
+	}
+
+	if (ret < 0) {
+		dev_err(&sdd->pdev->dev, "Error: SPI runtime get sync failed after 10msec waiting ret: %d\n", ret);
 		return ret;
+	}
+
 #endif
 
 	if (sci->need_hw_init) {
@@ -1987,6 +2005,7 @@ static int s3c64xx_spi_resume_operation(struct device *dev)
 	        s3c64xx_spi_runtime_resume(dev);
 
 	if (sci->domain == DOMAIN_TOP) {
+
 		/* Enable the clock */
 #ifdef CONFIG_ARM64_EXYNOS_CPUIDLE
 		exynos_update_ip_idle_status(sdd->idle_ip_index, 0);
@@ -2032,9 +2051,9 @@ static int s3c64xx_spi_suspend(struct device *dev)
 
 	if (sci->dma_mode != DMA_MODE)
 		return 0;
-
 	dev_dbg(dev, "spi suspend is handled in device suspend, dma mode = %d\n",
 			sci->dma_mode);
+
 	return s3c64xx_spi_suspend_operation(dev);
 }
 
@@ -2063,6 +2082,7 @@ static int s3c64xx_spi_resume(struct device *dev)
 
 	dev_dbg(dev, "spi resume is handled in device resume, dma mode = %d\n",
 			sci->dma_mode);
+
 	return s3c64xx_spi_resume_operation(dev);
 }
 
@@ -2077,6 +2097,7 @@ static int s3c64xx_spi_resume_noirq(struct device *dev)
 
 	dev_dbg(dev, "spi resume is handled in resume_noirq, dma mode = %d\n",
 			sci->dma_mode);
+
 	return s3c64xx_spi_resume_operation(dev);
 }
 #else
