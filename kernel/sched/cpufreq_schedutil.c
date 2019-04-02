@@ -587,6 +587,7 @@ static struct sugov_policy *sugov_policy_alloc(struct cpufreq_policy *policy)
 
 static void sugov_policy_free(struct sugov_policy *sg_policy)
 {
+	irq_work_sync(&sg_policy->irq_work);
 	mutex_destroy(&sg_policy->work_lock);
 	kfree(sg_policy);
 }
