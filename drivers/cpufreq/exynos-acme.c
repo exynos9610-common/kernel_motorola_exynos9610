@@ -814,7 +814,7 @@ EXPORT_SYMBOL(exynos_pstate_get_boost_freq);
 #define SCALE_SIZE	2
 
 static ssize_t show_cpufreq_table(struct kobject *kobj,
-				struct attribute *attr, char *buf)
+				struct kobj_attribute *attr, char *buf)
 {
 	struct exynos_cpufreq_domain *domain;
 	ssize_t count = 0;
@@ -839,7 +839,7 @@ static ssize_t show_cpufreq_table(struct kobject *kobj,
 }
 
 static ssize_t show_cpufreq_min_limit(struct kobject *kobj,
-				struct attribute *attr, char *buf)
+				struct kobj_attribute *attr, char *buf)
 {
 	struct exynos_cpufreq_domain *domain;
 	unsigned int pm_qos_min;
@@ -875,7 +875,7 @@ static ssize_t show_cpufreq_min_limit(struct kobject *kobj,
 }
 
 static ssize_t store_cpufreq_min_limit(struct kobject *kobj,
-				struct attribute *attr, const char *buf,
+				struct kobj_attribute *attr, const char *buf,
 				size_t count)
 {
 	struct exynos_cpufreq_domain *domain;
@@ -932,7 +932,7 @@ static ssize_t store_cpufreq_min_limit(struct kobject *kobj,
 }
 
 static ssize_t store_cpufreq_min_limit_wo_boost(struct kobject *kobj,
-				struct attribute *attr, const char *buf,
+				struct kobj_attribute *attr, const char *buf,
 				size_t count)
 {
 	struct exynos_cpufreq_domain *domain;
@@ -987,7 +987,7 @@ static ssize_t store_cpufreq_min_limit_wo_boost(struct kobject *kobj,
 }
 
 static ssize_t show_cpufreq_max_limit(struct kobject *kobj,
-				struct attribute *attr, char *buf)
+				struct kobj_attribute *attr, char *buf)
 {
 	struct exynos_cpufreq_domain *domain;
 	unsigned int pm_qos_max;
@@ -1044,7 +1044,7 @@ static void disable_domain_cpus(struct exynos_cpufreq_domain *domain)
 	exynos_cpuhp_request("ACME", mask, 0);
 }
 
-static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct attribute *attr,
+static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct kobj_attribute *attr,
 					const char *buf, size_t count)
 {
 	struct exynos_cpufreq_domain *domain;
@@ -1097,15 +1097,15 @@ static ssize_t store_cpufreq_max_limit(struct kobject *kobj, struct attribute *a
 	return count;
 }
 
-static struct global_attr cpufreq_table =
+static struct kobj_attribute cpufreq_table =
 __ATTR(cpufreq_table, S_IRUGO, show_cpufreq_table, NULL);
-static struct global_attr cpufreq_min_limit =
+static struct kobj_attribute cpufreq_min_limit =
 __ATTR(cpufreq_min_limit, S_IRUGO | S_IWUSR,
 		show_cpufreq_min_limit, store_cpufreq_min_limit);
-static struct global_attr cpufreq_min_limit_wo_boost =
+static struct kobj_attribute cpufreq_min_limit_wo_boost =
 __ATTR(cpufreq_min_limit_wo_boost, S_IRUGO | S_IWUSR,
 		show_cpufreq_min_limit, store_cpufreq_min_limit_wo_boost);
-static struct global_attr cpufreq_max_limit =
+static struct kobj_attribute cpufreq_max_limit =
 __ATTR(cpufreq_max_limit, S_IRUGO | S_IWUSR,
 		show_cpufreq_max_limit, store_cpufreq_max_limit);
 
