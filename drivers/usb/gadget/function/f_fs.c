@@ -2990,8 +2990,6 @@ static inline struct f_fs_opts *ffs_do_functionfs_bind(struct usb_function *f,
 
 	func->ffs = ffs_data;
 
-	pr_info("KS : No waiting!!!\n");
-
 	func->conf = c;
 	func->gadget = c->cdev->gadget;
 
