@@ -72,9 +72,13 @@ static struct inet_frags ip6_frags;
 static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *skb,
 			  struct sk_buff *prev_tail, struct net_device *dev);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
+static void ip6_frag_expire(unsigned long t)
+#else
 static void ip6_frag_expire(struct timer_list *t)
+#endif
 {
-	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+	struct inet_frag_queue *frag = from_timer(frag, (struct timer_list *)t, timer);
 	struct frag_queue *fq;
 	struct net *net;
 
