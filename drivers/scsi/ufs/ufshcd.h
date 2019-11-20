@@ -670,6 +670,7 @@ struct ufs_hba {
 	u32 uic_error;
 	u32 saved_err;
 	u32 saved_uic_err;
+	u32 saved_uic_phy_err_cnt;
 	struct ufs_stats ufs_stats;
 	bool silence_err_logs;
 
