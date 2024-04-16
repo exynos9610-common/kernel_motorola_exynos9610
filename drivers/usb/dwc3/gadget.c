@@ -207,7 +207,9 @@ void dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
 	struct dwc3			*dwc = dep->dwc;
 
 	req->started = false;
-	list_del(&req->list);
+	/* Only delete from the list if the item isn't poisoned. */
+	if (req->list.next != LIST_POISON1)
+		list_del(&req->list);
 	req->remaining = 0;
 	req->unaligned = false;
 	req->zero = false;
@@ -240,7 +242,6 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		int status)
 {
 	struct dwc3			*dwc = dep->dwc;
-	unsigned int			unmap_after_complete = false;
 
 	dwc3_gadget_del_and_unmap_request(dep, req, status);
 
