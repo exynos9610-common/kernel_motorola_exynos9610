@@ -532,7 +532,6 @@ static int xhci_plat_remove(struct platform_device *dev)
 		}
 	}
 	xhci_dbg(xhci, "%s: waited %dmsec", __func__, timeout);
->>>>>>> f09582feba44 ([COMMON] usb: add USB driver for Exynos)
 
 	pm_runtime_get_sync(&dev->dev);
 	dev_info(&dev->dev, "WAKE UNLOCK\n");
