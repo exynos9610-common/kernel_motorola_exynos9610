@@ -2048,7 +2048,8 @@ static void dw_mci_tasklet_func(unsigned long priv)
 				 * delayed. Allowing the transfer to take place
 				 * avoids races and keeps things simple.
 				 */
-				if (err != -ETIMEDOUT) {
+				if ((err != -ETIMEDOUT) &&
+				    (cmd->opcode == MMC_SEND_TUNING_BLOCK)) {
 					state = STATE_SENDING_DATA;
 					continue;
 				}
